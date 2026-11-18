@@ -1,3 +1,4 @@
+
 package com.example.runner;
 
 import android.Manifest;
@@ -31,14 +32,15 @@ import java.util.UUID;
 
 public class MainActivity extends Activity {
     private static final UUID SERVICE_UUID = UUID.fromString("0000fe20-0000-1000-8000-00805f9b34fb");
+    private static final UUID FE21_UUID = UUID.fromString("0000fe21-0000-1000-8000-00805f9b34fb");
     private static final UUID CHAR_UUID = UUID.fromString("0000fe22-0000-1000-8000-00805f9b34fb");
     private static final UUID CCCD_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 
-    // Captured from the user's nRF Connect tests: 18 bytes each.
     private static final byte[] REAR_SEQUENCE = new byte[] {
         0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     };
+
     private static final byte[] FRONT_SEQUENCE = new byte[] {
         0x41, 0x40, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
         0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41
@@ -46,14 +48,16 @@ public class MainActivity extends Activity {
 
     private TextView status;
     private TextView log;
-    private Button scanButton, rearButton, frontButton;
+    private Button scanButton, rearButton, frontButton, fe21Button;
     private BluetoothAdapter adapter;
     private BluetoothGatt gatt;
     private BluetoothGattCharacteristic commandCharacteristic;
+    private BluetoothGattCharacteristic fe21Characteristic;
     private boolean firstSequenceSent = false;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
-    @Override public void onCreate(Bundle savedInstanceState) {
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         buildUi();
         BluetoothManager manager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
@@ -96,8 +100,13 @@ public class MainActivity extends Activity {
         frontButton.setOnClickListener(v -> confirmAndSend(true));
         root.addView(frontButton);
 
+        fe21Button = new Button(this);
+        fe21Button.setText("FE21 — Désactiver anti-perte");
+        fe21Button.setOnClickListener(v -> confirmFe21PowerOff());
+        root.addView(fe21Button);
+
         TextView warning = new TextView(this);
-        warning.setText("Attention : la séquence 1 a un comportement dépendant de l’état des verrous. Elle peut aussi agir sur le verrou avant. Teste uniquement lorsque tu peux observer les deux verrous.");
+        warning.setText("Attention : les commandes Bluetooth peuvent modifier l’état des verrous et de l’alarme. Effectue les essais uniquement lorsque tu peux observer le mécanisme.");
         warning.setTextSize(14);
         warning.setTextColor(0xFF9A3B00);
         warning.setPadding(0, 16, 0, 16);
@@ -112,6 +121,7 @@ public class MainActivity extends Activity {
         log.setText("En attente…");
         log.setTextIsSelectable(true);
         log.setTextSize(13);
+
         ScrollView scroll = new ScrollView(this);
         scroll.addView(log);
         root.addView(scroll, new LinearLayout.LayoutParams(
@@ -137,15 +147,19 @@ public class MainActivity extends Activity {
             setStatus("Active le Bluetooth du téléphone.");
             return;
         }
+
         if (!hasScanPermission()) {
             requestLocationPermissionIfNeeded();
             setStatus("Autorise la localisation pour rechercher les appareils Bluetooth.");
             return;
         }
+
         closeGatt();
         firstSequenceSent = false;
         commandCharacteristic = null;
+        fe21Characteristic = null;
         updateButtons();
+
         setStatus("Recherche de RUNNER…");
         addLog("Démarrage du scan BLE (10 secondes).");
 
@@ -154,41 +168,60 @@ public class MainActivity extends Activity {
             setStatus("Scanner Bluetooth indisponible.");
             return;
         }
+
         scanner.startScan(scanCallback);
+
         handler.postDelayed(() -> {
-            try { scanner.stopScan(scanCallback); } catch (Exception ignored) {}
-            if (gatt == null) setStatus("RUNNER non trouvé. Réessaie près du verrou.");
+            try {
+                scanner.stopScan(scanCallback);
+            } catch (Exception ignored) {
+            }
+
+            if (gatt == null) {
+                setStatus("RUNNER non trouvé. Réessaie près du verrou.");
+            }
         }, 10000);
     }
 
     private final ScanCallback scanCallback = new ScanCallback() {
-        @Override public void onScanResult(int callbackType, ScanResult result) {
+        @Override
+        public void onScanResult(int callbackType, ScanResult result) {
             BluetoothDevice device = result.getDevice();
             String name = device.getName();
+
             if ((name != null && name.equalsIgnoreCase("RUNNER")) ||
                     "D8:A9:8B:CF:0D:0A".equalsIgnoreCase(device.getAddress())) {
+
                 BluetoothLeScanner scanner = adapter.getBluetoothLeScanner();
-                if (scanner != null) scanner.stopScan(this);
+                if (scanner != null) {
+                    scanner.stopScan(this);
+                }
+
                 addLog("RUNNER trouvé : " + device.getAddress());
                 setStatus("Connexion à RUNNER…");
                 gatt = device.connectGatt(MainActivity.this, false, gattCallback);
             }
         }
-        @Override public void onScanFailed(int errorCode) {
+
+        @Override
+        public void onScanFailed(int errorCode) {
             setStatus("Échec du scan BLE : " + errorCode);
         }
     };
 
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
-        @Override public void onConnectionStateChange(BluetoothGatt bluetoothGatt, int statusCode, int newState) {
+        @Override
+        public void onConnectionStateChange(BluetoothGatt bluetoothGatt, int statusCode, int newState) {
             runOnUiThread(() -> {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     setStatus("Connecté. Recherche des services…");
                     addLog("Connexion BLE établie.");
                     bluetoothGatt.discoverServices();
+
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     setStatus("Déconnecté.");
                     commandCharacteristic = null;
+                    fe21Characteristic = null;
                     firstSequenceSent = false;
                     updateButtons();
                     addLog("Connexion interrompue (status " + statusCode + ").");
@@ -196,40 +229,60 @@ public class MainActivity extends Activity {
             });
         }
 
-        @Override public void onServicesDiscovered(BluetoothGatt bluetoothGatt, int statusCode) {
+        @Override
+        public void onServicesDiscovered(BluetoothGatt bluetoothGatt, int statusCode) {
             BluetoothGattService service = bluetoothGatt.getService(SERVICE_UUID);
+
             if (service == null) {
                 runOnUiThread(() -> setStatus("Service FE20 introuvable."));
                 return;
             }
+
             commandCharacteristic = service.getCharacteristic(CHAR_UUID);
+            fe21Characteristic = service.getCharacteristic(FE21_UUID);
+
             if (commandCharacteristic == null) {
                 runOnUiThread(() -> setStatus("Caractéristique FE22 introuvable."));
                 return;
             }
+
             bluetoothGatt.setCharacteristicNotification(commandCharacteristic, true);
-            BluetoothGattDescriptor descriptor = commandCharacteristic.getDescriptor(CCCD_UUID);
+
+            BluetoothGattDescriptor descriptor =
+                    commandCharacteristic.getDescriptor(CCCD_UUID);
+
             if (descriptor != null) {
                 descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
                 bluetoothGatt.writeDescriptor(descriptor);
             }
+
             runOnUiThread(() -> {
                 setStatus("RUNNER connecté — prêt.");
                 addLog("Service FE20 et caractéristique FE22 trouvés.");
+
+                if (fe21Characteristic != null) {
+                    addLog("Caractéristique FE21 trouvée.");
+                } else {
+                    addLog("FE21 introuvable : commande PLEVO indisponible.");
+                }
+
                 updateButtons();
             });
         }
 
-        @Override public void onCharacteristicChanged(BluetoothGatt bluetoothGatt,
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt bluetoothGatt,
                 BluetoothGattCharacteristic characteristic) {
             byte[] value = characteristic.getValue();
             runOnUiThread(() -> addLog("Notification : " + toHex(value)));
         }
 
-        @Override public void onCharacteristicWrite(BluetoothGatt bluetoothGatt,
+        @Override
+        public void onCharacteristicWrite(BluetoothGatt bluetoothGatt,
                 BluetoothGattCharacteristic characteristic, int statusCode) {
             runOnUiThread(() -> addLog(statusCode == BluetoothGatt.GATT_SUCCESS
-                    ? "Écriture BLE confirmée." : "Erreur d’écriture BLE : " + statusCode));
+                    ? "Écriture BLE confirmée."
+                    : "Erreur d’écriture BLE : " + statusCode));
         }
     };
 
@@ -238,44 +291,145 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "Connecte d’abord RUNNER.", Toast.LENGTH_SHORT).show();
             return;
         }
+
         if (front && !firstSequenceSent) {
             Toast.makeText(this, "Envoie d’abord la séquence 1.", Toast.LENGTH_LONG).show();
             return;
         }
+
         String message = front
                 ? "Envoyer la séquence 2 au verrou avant ? Vérifie que le verrou est dans le bon état."
                 : "Envoyer la séquence 1 ? Cette commande peut modifier l’état d’un verrou. Confirmer uniquement si tu observes le mécanisme.";
+
         new android.app.AlertDialog.Builder(this)
                 .setTitle("Confirmer l’envoi")
                 .setMessage(message)
-                .setNegativeButton("Annuler", (d, w) -> {})
-                .setPositiveButton("Envoyer", (d, w) -> send(front ? FRONT_SEQUENCE : REAR_SEQUENCE, front))
+                .setNegativeButton("Annuler", (d, w) -> {
+                })
+                .setPositiveButton("Envoyer",
+                        (d, w) -> send(front ? FRONT_SEQUENCE : REAR_SEQUENCE, front))
                 .show();
     }
 
     private void send(byte[] payload, boolean front) {
-        if (gatt == null || commandCharacteristic == null) return;
-        commandCharacteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+        if (gatt == null || commandCharacteristic == null) {
+            return;
+        }
+
+        commandCharacteristic.setWriteType(
+                BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
         commandCharacteristic.setValue(payload);
+
         boolean accepted = gatt.writeCharacteristic(commandCharacteristic);
+
         if (accepted) {
-            if (!front) firstSequenceSent = true;
-            addLog("Envoi " + (front ? "séquence avant" : "séquence 1") + " : " + toHex(payload));
+            if (!front) {
+                firstSequenceSent = true;
+            }
+
+            addLog("Envoi " + (front ? "séquence avant" : "séquence 1")
+                    + " : " + toHex(payload));
             updateButtons();
+
         } else {
             addLog("Le téléphone a refusé de lancer l’écriture BLE.");
         }
     }
 
+    private void confirmFe21PowerOff() {
+        if (gatt == null || fe21Characteristic == null) {
+            Toast.makeText(this, "FE21 indisponible. Connecte d’abord RUNNER.",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Commande FE21")
+                .setMessage("Envoyer la commande PLEVO de désactivation de l’anti-perte ? Cette commande peut modifier le comportement de l’appareil.")
+                .setNegativeButton("Annuler", (d, w) -> {
+                })
+                .setPositiveButton("Envoyer", (d, w) -> sendFe21PowerOff())
+                .show();
+    }
+
+    private void sendFe21PowerOff() {
+        if (gatt == null || fe21Characteristic == null) {
+            return;
+        }
+
+        // PLEVO : [activation=0, mode=DISABLE, alarme=SILENCE, profil=normal]
+        byte[] plainCommand = new byte[] {
+                0x00, 0x00, 0x00, 0x00
+        };
+
+        // Encodage PLEVO : octet de contrôle puis XOR avec cet octet.
+        byte[] encodedCommand = encodePlevoPacket(plainCommand);
+
+        fe21Characteristic.setWriteType(
+                BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+        fe21Characteristic.setValue(encodedCommand);
+
+        boolean accepted = gatt.writeCharacteristic(fe21Characteristic);
+
+        if (accepted) {
+            addLog("FE21 — commande PLEVO : " + toHex(encodedCommand));
+            addLog("Données avant codage : " + toHex(plainCommand));
+        } else {
+            addLog("Le téléphone a refusé l’écriture sur FE21.");
+        }
+    }
+
+    private byte[] encodePlevoPacket(byte[] input) {
+        byte[] key = new byte[] {
+                'A', 'n', 't', 'i', 'l', 'o', 's', 't'
+        };
+
+        int checksum = 0;
+
+        for (byte value : input) {
+            int current = value & 0xFF;
+
+            for (int bit = 0; bit < 8; bit++) {
+                if ((current & 1) != 0) {
+                    checksum ^= key[bit] & 0xFF;
+                }
+                current >>>= 1;
+            }
+        }
+
+        byte[] output = new byte[input.length + 1];
+        output[0] = (byte) checksum;
+
+        for (int i = 0; i < input.length; i++) {
+            output[i + 1] = (byte) (checksum ^ (input[i] & 0xFF));
+        }
+
+        return output;
+    }
+
     private void updateButtons() {
         boolean connected = commandCharacteristic != null && gatt != null;
-        if (rearButton != null) rearButton.setEnabled(connected);
-        if (frontButton != null) frontButton.setEnabled(connected && firstSequenceSent);
+
+        if (rearButton != null) {
+            rearButton.setEnabled(connected);
+        }
+
+        if (frontButton != null) {
+            frontButton.setEnabled(connected && firstSequenceSent);
+        }
+
+        if (fe21Button != null) {
+            fe21Button.setEnabled(fe21Characteristic != null && gatt != null);
+        }
     }
 
     private void closeGatt() {
         if (gatt != null) {
-            try { gatt.disconnect(); gatt.close(); } catch (Exception ignored) {}
+            try {
+                gatt.disconnect();
+                gatt.close();
+            } catch (Exception ignored) {
+            }
             gatt = null;
         }
     }
@@ -289,13 +443,21 @@ public class MainActivity extends Activity {
     }
 
     private String toHex(byte[] bytes) {
-        if (bytes == null) return "(vide)";
+        if (bytes == null) {
+            return "(vide)";
+        }
+
         StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) sb.append(String.format("%02X ", b & 0xFF));
+
+        for (byte b : bytes) {
+            sb.append(String.format("%02X ", b & 0xFF));
+        }
+
         return sb.toString().trim();
     }
 
-    @Override protected void onDestroy() {
+    @Override
+    protected void onDestroy() {
         closeGatt();
         super.onDestroy();
     }
