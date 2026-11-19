@@ -273,21 +273,58 @@ public class MainActivity extends Activity {
             });
         }
 
-        @Override
-        public void onCharacteristicChanged(BluetoothGatt bluetoothGatt,
-                BluetoothGattCharacteristic characteristic) {
-            byte[] value = characteristic.getValue();
-            runOnUiThread(() -> addLog("Notification : " + toHex(value)));
+   @Override
+public void onDescriptorWrite(BluetoothGatt bluetoothGatt,
+        BluetoothGattDescriptor descriptor, int status) {
+
+    if (status != BluetoothGatt.GATT_SUCCESS) {
+        runOnUiThread(() ->
+                addLog("Erreur activation notifications : " + status));
+        return;
+    }
+
+    BluetoothGattCharacteristic characteristic =
+            descriptor.getCharacteristic();
+
+    if (CHAR_UUID.equals(characteristic.getUuid())) {
+
+        if (fe21Characteristic != null) {
+            BluetoothGattDescriptor fe21Descriptor =
+                    fe21Characteristic.getDescriptor(CCCD_UUID);
+
+            if (fe21Descriptor != null) {
+                fe21Descriptor.setValue(
+                        BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+
+                boolean started = bluetoothGatt.writeDescriptor(fe21Descriptor);
+
+                runOnUiThread(() -> addLog(started
+                        ? "Activation des notifications FE21 demandée."
+                        : "Impossible de lancer l'activation FE21."));
+            }
         }
 
-        @Override
-        public void onCharacteristicWrite(BluetoothGatt bluetoothGatt,
-                BluetoothGattCharacteristic characteristic, int statusCode) {
-            runOnUiThread(() -> addLog(statusCode == BluetoothGatt.GATT_SUCCESS
-                    ? "Écriture BLE confirmée."
-                    : "Erreur d’écriture BLE : " + statusCode));
-        }
-    };
+    } else if (FE21_UUID.equals(characteristic.getUuid())) {
+        runOnUiThread(() ->
+                addLog("Notifications FE21 activées."));
+    }
+}
+@Override
+public void onCharacteristicChanged(BluetoothGatt bluetoothGatt,
+        BluetoothGattCharacteristic characteristic) {
+    byte[] value = characteristic.getValue();
+    runOnUiThread(() ->
+            addLog("Notification " + characteristic.getUuid() + " : " + toHex(value)));
+}
+
+@Override
+public void onCharacteristicWrite(BluetoothGatt bluetoothGatt,
+        BluetoothGattCharacteristic characteristic, int statusCode) {
+    runOnUiThread(() -> addLog(statusCode == BluetoothGatt.GATT_SUCCESS
+            ? "Écriture BLE confirmée."
+            : "Erreur d’écriture BLE : " + statusCode));
+}
+    };        
 
     private void confirmAndSend(boolean front) {
         if (commandCharacteristic == null || gatt == null) {
