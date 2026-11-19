@@ -247,7 +247,9 @@ public class MainActivity extends Activity {
             }
 
             bluetoothGatt.setCharacteristicNotification(commandCharacteristic, true);
-
+            if (fe21Characteristic != null) {
+    bluetoothGatt.setCharacteristicNotification(fe21Characteristic, true);
+}
             BluetoothGattDescriptor descriptor =
                     commandCharacteristic.getDescriptor(CCCD_UUID);
 
@@ -262,6 +264,7 @@ public class MainActivity extends Activity {
 
                 if (fe21Characteristic != null) {
                     addLog("Caractéristique FE21 trouvée.");
+                    addLog("Propriétés FE21 : " + fe21Characteristic.getProperties());
                 } else {
                     addLog("FE21 introuvable : commande PLEVO indisponible.");
                 }
