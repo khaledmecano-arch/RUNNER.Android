@@ -17,6 +17,9 @@ import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -31,6 +34,12 @@ import android.widget.Toast;
 import java.util.UUID;
 
 public class MainActivity extends Activity {
+
+    private static final int BLACK = Color.rgb(8, 10, 16);
+    private static final int PANEL = Color.rgb(20, 25, 36);
+    private static final int BLUE = Color.rgb(0, 145, 255);
+    private static final int WHITE = Color.WHITE;
+    private static final int GREY = Color.rgb(180, 190, 205);
 
     private static final UUID SERVICE_UUID =
             UUID.fromString("0000fe20-0000-1000-8000-00805f9b34fb");
@@ -74,6 +83,11 @@ public class MainActivity extends Activity {
     private boolean firstSequenceSent = false;
     private boolean weighing = false;
 
+    private String currentStatus = "Déconnecté";
+    private String currentWeight = "Poids : -- kg";
+
+    private final StringBuilder logHistory = new StringBuilder("En attente…");
+
     private final Handler handler =
             new Handler(Looper.getMainLooper());
 
@@ -84,95 +98,133 @@ public class MainActivity extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        buildUi();
-
         BluetoothManager manager =
                 (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
 
         adapter = manager.getAdapter();
 
+        showHome();
+
         updateButtons();
         requestLocationPermissionIfNeeded();
     }
 
-    private void buildUi() {
+    // ---------------------------------------------------------
+    // INTERFACE
+    // ---------------------------------------------------------
+
+    private LinearLayout createRoot() {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(28, 28, 28, 28);
-        root.setBackgroundColor(0xFFF5F5F5);
+        root.setPadding(22, 22, 22, 22);
+        root.setBackgroundColor(BLACK);
 
-        TextView title = new TextView(this);
-        title.setText("RUNNER — Commande Bluetooth");
-        title.setTextSize(23);
-        title.setTextColor(0xFF111111);
-        title.setGravity(Gravity.CENTER);
+        return root;
+    }
+
+    private TextView createText(String value, int size, int color) {
+
+        TextView text = new TextView(this);
+        text.setText(value);
+        text.setTextSize(size);
+        text.setTextColor(color);
+        text.setGravity(Gravity.CENTER);
+
+        return text;
+    }
+
+    private Button createButton(String value) {
+
+        Button button = new Button(this);
+        button.setText(value);
+        button.setTextSize(16);
+        button.setTextColor(WHITE);
+        button.setAllCaps(false);
+        button.setBackgroundTintList(
+                ColorStateList.valueOf(BLUE)
+        );
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                );
+
+        params.setMargins(0, 9, 0, 9);
+        button.setLayoutParams(params);
+
+        return button;
+    }
+
+    private TextView createHeader(String value) {
+
+        TextView title = createText(value, 25, BLUE);
+        title.setPadding(0, 12, 0, 18);
+
+        return title;
+    }
+
+    private void showHome() {
+
+        LinearLayout root = createRoot();
+
+        TextView title = createHeader("PLEVO RUNNER");
         root.addView(title);
 
-        status = new TextView(this);
-        status.setText("État : déconnecté");
-        status.setTextSize(16);
-        status.setPadding(0, 22, 0, 18);
+        LinearLayout hero = new LinearLayout(this);
+        hero.setOrientation(LinearLayout.VERTICAL);
+        hero.setGravity(Gravity.CENTER);
+        hero.setPadding(15, 25, 15, 25);
+
+        GradientDrawable heroBackground = new GradientDrawable();
+        heroBackground.setColor(PANEL);
+        heroBackground.setCornerRadius(24);
+        heroBackground.setStroke(2, BLUE);
+        hero.setBackground(heroBackground);
+
+        TextView suitcase = createText("🧳", 68, WHITE);
+        hero.addView(suitcase);
+
+        TextView subtitle =
+                createText("SMART LUGGAGE CONTROL", 14, GREY);
+        subtitle.setPadding(0, 8, 0, 0);
+        hero.addView(subtitle);
+
+        root.addView(hero);
+
+        status = createText(
+                "État : " + currentStatus,
+                15,
+                GREY
+        );
+        status.setPadding(0, 18, 0, 12);
         root.addView(status);
 
-        scanButton = new Button(this);
-        scanButton.setText("Rechercher et connecter RUNNER");
+        scanButton = createButton("BLUETOOTH — CONNECTER RUNNER");
         scanButton.setOnClickListener(v -> startScan());
         root.addView(scanButton);
 
-        rearButton = new Button(this);
-        rearButton.setText("Envoyer la séquence 1 (arrière)");
-        rearButton.setOnClickListener(v -> confirmAndSend(false));
-        root.addView(rearButton);
+        Button lockMenu = createButton("VERROUILLAGE");
+        lockMenu.setOnClickListener(v -> showLockMenu());
+        root.addView(lockMenu);
 
-        frontButton = new Button(this);
-        frontButton.setText("Envoyer la séquence 2 (avant)");
-        frontButton.setOnClickListener(v -> confirmAndSend(true));
-        root.addView(frontButton);
+        Button weightMenu = createButton("PESÉE");
+        weightMenu.setOnClickListener(v -> showWeightMenu());
+        root.addView(weightMenu);
 
-        fe21Button = new Button(this);
-        fe21Button.setText("FE21 — Désactiver anti-perte");
+        fe21Button = createButton("INSECURE");
         fe21Button.setOnClickListener(v -> confirmFe21PowerOff());
         root.addView(fe21Button);
 
-        weightText = new TextView(this);
-        weightText.setText("Poids : -- kg");
-        weightText.setTextSize(26);
-        weightText.setGravity(Gravity.CENTER);
-        weightText.setPadding(0, 25, 0, 25);
-        weightText.setTextColor(0xFF111111);
-        root.addView(weightText);
-
-        weighButton = new Button(this);
-        weighButton.setText("DÉMARRER LA PESÉE");
-        weighButton.setOnClickListener(v -> startOrStopWeighing());
-        root.addView(weighButton);
-
-        calibrateButton = new Button(this);
-        calibrateButton.setText("CALIBRER LA PESÉE");
-        calibrateButton.setOnClickListener(v -> calibrateWeight());
-        root.addView(calibrateButton);
-
-        TextView warning = new TextView(this);
-        warning.setText(
-                "Attention : les commandes Bluetooth peuvent modifier " +
-                "l’état des verrous et de l’alarme. Effectue les essais " +
-                "uniquement lorsque tu peux observer le mécanisme."
-        );
-        warning.setTextSize(14);
-        warning.setTextColor(0xFF9A3B00);
-        warning.setPadding(0, 16, 0, 16);
-        root.addView(warning);
-
-        TextView logTitle = new TextView(this);
-        logTitle.setText("Journal Bluetooth");
-        logTitle.setTextSize(17);
+        TextView logTitle =
+                createText("JOURNAL BLUETOOTH", 16, BLUE);
+        logTitle.setPadding(0, 20, 0, 8);
         root.addView(logTitle);
 
-        log = new TextView(this);
-        log.setText("En attente…");
+        log = createText(logHistory.toString(), 12, GREY);
+        log.setGravity(Gravity.START);
         log.setTextIsSelectable(true);
-        log.setTextSize(13);
 
         ScrollView scroll = new ScrollView(this);
         scroll.addView(log);
@@ -184,9 +236,86 @@ public class MainActivity extends Activity {
         ));
 
         setContentView(root);
+        updateButtons();
     }
 
+    private void showLockMenu() {
+
+        LinearLayout root = createRoot();
+
+        root.addView(createHeader("VERROUILLAGE"));
+
+        TextView description =
+                createText("Commandes des verrous de la valise", 15, GREY);
+        root.addView(description);
+
+        root.addView(createText("VERROU ARRIÈRE", 18, WHITE));
+
+        rearButton = createButton("ACTIVER — ARRIÈRE");
+        rearButton.setOnClickListener(v -> confirmAndSend(false));
+        root.addView(rearButton);
+
+        root.addView(createText("VERROU AVANT", 18, WHITE));
+
+        frontButton = createButton("ACTIVER — AVANT");
+        frontButton.setOnClickListener(v -> confirmAndSend(true));
+        root.addView(frontButton);
+
+        Button back = createButton("RETOUR");
+        back.setOnClickListener(v -> showHome());
+        root.addView(back);
+
+        setContentView(root);
+        updateButtons();
+    }
+
+    private void showWeightMenu() {
+
+        LinearLayout root = createRoot();
+
+        root.addView(createHeader("PESÉE"));
+
+        TextView description =
+                createText("Mesure du poids de votre valise", 15, GREY);
+        root.addView(description);
+
+        weightText = createText(currentWeight, 30, BLUE);
+        weightText.setPadding(0, 35, 0, 35);
+        root.addView(weightText);
+
+        weighButton = createButton(
+                weighing ? "ARRÊTER LA PESÉE" : "DÉMARRER LA PESÉE"
+        );
+        weighButton.setOnClickListener(v -> startOrStopWeighing());
+        root.addView(weighButton);
+
+        calibrateButton = createButton("CALIBRER LA PESÉE");
+        calibrateButton.setOnClickListener(v -> calibrateWeight());
+        root.addView(calibrateButton);
+
+        TextView warning =
+                createText(
+                        "Pour calibrer, placez la valise vide sur une surface plane.",
+                        13,
+                        GREY
+                );
+        warning.setPadding(0, 20, 0, 20);
+        root.addView(warning);
+
+        Button back = createButton("RETOUR");
+        back.setOnClickListener(v -> showHome());
+        root.addView(back);
+
+        setContentView(root);
+        updateButtons();
+    }
+
+    // ---------------------------------------------------------
+    // AUTORISATIONS ET BLUETOOTH
+    // ---------------------------------------------------------
+
     private void requestLocationPermissionIfNeeded() {
+
         if (Build.VERSION.SDK_INT >= 23 &&
                 Build.VERSION.SDK_INT <= 30 &&
                 checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -200,6 +329,7 @@ public class MainActivity extends Activity {
     }
 
     private boolean hasScanPermission() {
+
         return Build.VERSION.SDK_INT > 30 ||
                 checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
                         == PackageManager.PERMISSION_GRANTED;
@@ -219,7 +349,6 @@ public class MainActivity extends Activity {
         }
 
         stopWeighing();
-
         closeGatt();
 
         firstSequenceSent = false;
@@ -241,6 +370,7 @@ public class MainActivity extends Activity {
         scanner.startScan(scanCallback);
 
         handler.postDelayed(() -> {
+
             try {
                 scanner.stopScan(scanCallback);
             } catch (Exception ignored) {
@@ -249,6 +379,7 @@ public class MainActivity extends Activity {
             if (gatt == null) {
                 setStatus("RUNNER non trouvé. Réessaie.");
             }
+
         }, 10000);
     }
 
@@ -474,11 +605,15 @@ public class MainActivity extends Activity {
 
                         float kg = rawWeight / 1000.0f;
 
-                        weightText.setText(String.format(
+                        currentWeight = String.format(
                                 java.util.Locale.US,
                                 "Poids : %.3f kg",
                                 kg
-                        ));
+                        );
+
+                        if (weightText != null) {
+                            weightText.setText(currentWeight);
+                        }
                     }
                 });
 
@@ -503,6 +638,10 @@ public class MainActivity extends Activity {
                             : "Erreur d’écriture BLE : " + statusCode));
         }
     };
+
+    // ---------------------------------------------------------
+    // VERROUS
+    // ---------------------------------------------------------
 
     private void confirmAndSend(boolean front) {
 
@@ -569,6 +708,10 @@ public class MainActivity extends Activity {
         }
     }
 
+    // ---------------------------------------------------------
+    // FE21 — INSECURE
+    // ---------------------------------------------------------
+
     private void confirmFe21PowerOff() {
 
         if (gatt == null || fe21Characteristic == null) {
@@ -620,6 +763,10 @@ public class MainActivity extends Activity {
             addLog("Le téléphone a refusé l’écriture sur FE21.");
         }
     }
+
+    // ---------------------------------------------------------
+    // ENCODAGE ET DÉCODAGE PLEVO
+    // ---------------------------------------------------------
 
     private byte[] encodePlevoPacket(byte[] input) {
 
@@ -712,6 +859,10 @@ public class MainActivity extends Activity {
         return decoded;
     }
 
+    // ---------------------------------------------------------
+    // PESÉE ET CALIBRAGE
+    // ---------------------------------------------------------
+
     private void startOrStopWeighing() {
 
         if (gatt == null || commandCharacteristic == null) {
@@ -728,7 +879,9 @@ public class MainActivity extends Activity {
 
         weighing = true;
 
-        weighButton.setText("ARRÊTER LA PESÉE");
+        if (weighButton != null) {
+            weighButton.setText("ARRÊTER LA PESÉE");
+        }
 
         sendWeightCommand(new byte[] {0x02, 0x00});
 
@@ -815,6 +968,10 @@ public class MainActivity extends Activity {
                 .show();
     }
 
+    // ---------------------------------------------------------
+    // ÉTAT DES BOUTONS ET JOURNAL
+    // ---------------------------------------------------------
+
     private void updateButtons() {
 
         boolean connected =
@@ -860,13 +1017,26 @@ public class MainActivity extends Activity {
     }
 
     private void setStatus(String value) {
-        runOnUiThread(() ->
-                status.setText("État : " + value));
+
+        currentStatus = value;
+
+        runOnUiThread(() -> {
+            if (status != null) {
+                status.setText("État : " + currentStatus);
+            }
+        });
     }
 
     private void addLog(String value) {
-        runOnUiThread(() ->
-                log.append("\n" + value));
+
+        runOnUiThread(() -> {
+
+            logHistory.append("\n").append(value);
+
+            if (log != null) {
+                log.setText(logHistory.toString());
+            }
+        });
     }
 
     private String toHex(byte[] bytes) {
