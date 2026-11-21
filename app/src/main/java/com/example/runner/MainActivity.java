@@ -1,4 +1,3 @@
-
 package com.example.runner;
 
 import android.Manifest;
@@ -17,7 +16,6 @@ import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -30,8 +28,8 @@ import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -71,12 +69,12 @@ public class MainActivity extends Activity {
     private TextView log;
     private TextView weightText;
 
-    private Button scanButton;
-    private Button rearButton;
-    private Button frontButton;
-    private Button fe21Button;
-    private Button weighButton;
-    private Button calibrateButton;
+    private ImageButton scanButton;
+    private ImageButton rearButton;
+    private ImageButton frontButton;
+    private ImageButton fe21Button;
+    private ImageButton weighButton;
+    private ImageButton calibrateButton;
 
     private BluetoothAdapter adapter;
     private BluetoothGatt gatt;
@@ -87,11 +85,11 @@ public class MainActivity extends Activity {
     private boolean firstSequenceSent = false;
     private boolean weighing = false;
 
-    private String currentStatus = "Déconnecté";
+    private String currentStatus = "DÃ©connectÃ©";
     private String currentWeight = "Poids : -- kg";
 
     private final StringBuilder logHistory =
-            new StringBuilder("En attente…");
+            new StringBuilder("En attenteâ€¦");
 
     private final Handler handler =
             new Handler(Looper.getMainLooper());
@@ -194,6 +192,24 @@ public class MainActivity extends Activity {
         return button;
     }
 
+
+    private ImageButton createImageButton(int imageResource, int heightDp) {
+        ImageButton button = new ImageButton(this);
+        button.setImageResource(imageResource);
+        button.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+        button.setBackgroundColor(Color.TRANSPARENT);
+        button.setPadding(4, 4, 4, 4);
+        button.setAdjustViewBounds(true);
+        button.setContentDescription("Bouton RUNNER");
+
+        int height = (int) (heightDp * getResources().getDisplayMetrics().density + 0.5f);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, height);
+        params.setMargins(0, 7, 0, 7);
+        button.setLayoutParams(params);
+        return button;
+    }
+
     private TextView createHeader(String value) {
 
         TextView title = createText(value, 25, BLUE);
@@ -268,7 +284,7 @@ public class MainActivity extends Activity {
                     25, 25, paint
             );
 
-            // Poignée supérieure
+            // PoignÃ©e supÃ©rieure
             canvas.drawRoundRect(
                     new RectF(cx - 32, top - 28, cx + 32, top + 5),
                     10, 10, paint
@@ -309,66 +325,21 @@ public class MainActivity extends Activity {
     }
 
     // ---------------------------------------------------------
-    // ÉCRAN DE CONNEXION
+    // Ã‰CRAN DE CONNEXION
     // ---------------------------------------------------------
 
     private void showConnection() {
-
         clearScreenButtons();
 
         LinearLayout root = createRoot();
+        root.setPadding(20, 20, 20, 20);
         root.setGravity(Gravity.CENTER);
+        root.setBackgroundResource(R.drawable.menu_cnt);
 
-        TextView brand = createText("PLEVO", 22, WHITE);
-        brand.setLetterSpacing(0.25f);
-        root.addView(brand);
-
-        TextView title = createText("RUNNER", 36, BLUE);
-        title.setTypeface(null, android.graphics.Typeface.BOLD);
-        title.setPadding(0, 0, 0, 12);
-        root.addView(title);
-
-        TextView subtitle =
-                createText("SMART LUGGAGE CONTROL", 12, GREY);
-        subtitle.setLetterSpacing(0.18f);
-        root.addView(subtitle);
-
-        LinearLayout hero = new LinearLayout(this);
-        hero.setOrientation(LinearLayout.VERTICAL);
-        hero.setGravity(Gravity.CENTER);
-        hero.setBackground(roundedPanel());
-        hero.setPadding(10, 15, 10, 15);
-
-        LinearLayout.LayoutParams heroParams =
-                new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        0,
-                        1
-                );
-
-        heroParams.setMargins(0, 25, 0, 25);
-
-        addSuitcaseIllustration(hero, 250);
-        root.addView(hero, heroParams);
-
-        status = createText(
-                "ÉTAT : " + currentStatus.toUpperCase(),
-                14,
-                GREY
-        );
-
-        status.setPadding(0, 5, 0, 15);
-        root.addView(status);
-
-        scanButton = createPrimaryButton("CONNECTER");
+        scanButton = createImageButton(R.drawable.connecter, 92);
+        scanButton.setContentDescription("Connecter RUNNER");
         scanButton.setOnClickListener(v -> startScan());
         root.addView(scanButton);
-
-        TextView footer =
-                createText("BLUETOOTH LOW ENERGY", 11, GREY);
-
-        footer.setPadding(0, 15, 0, 5);
-        root.addView(footer);
 
         setContentView(root);
         updateButtons();
@@ -379,67 +350,35 @@ public class MainActivity extends Activity {
     // ---------------------------------------------------------
 
     private void showHome() {
-
         clearScreenButtons();
 
         LinearLayout root = createRoot();
+        root.setPadding(24, 24, 24, 24);
+        root.setGravity(Gravity.CENTER);
+        root.setBackgroundResource(R.drawable.menu_p);
 
-        root.addView(createHeader("PLEVO RUNNER"));
+        View topSpace = new View(this);
+        root.addView(topSpace, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
 
-        LinearLayout hero = new LinearLayout(this);
-        hero.setOrientation(LinearLayout.VERTICAL);
-        hero.setGravity(Gravity.CENTER);
-        hero.setPadding(10, 5, 10, 5);
-        hero.setBackground(roundedPanel());
-
-        addSuitcaseIllustration(hero, 145);
-
-        TextView connected =
-                createText("RUNNER CONNECTÉ", 15, BLUE);
-
-        hero.addView(connected);
-
-        root.addView(hero);
-
-        status = createText(
-                "ÉTAT : " + currentStatus,
-                13,
-                GREY
-        );
-
-        status.setPadding(0, 15, 0, 15);
-        root.addView(status);
-
-        Button lockMenu = createPrimaryButton("VERROUILLAGE");
+        ImageButton lockMenu = createImageButton(R.drawable.verrouillage, 78);
+        lockMenu.setContentDescription("Verrouillage");
         lockMenu.setOnClickListener(v -> showLockMenu());
         root.addView(lockMenu);
 
-        Button weightMenu = createPrimaryButton("PESÉE");
+        ImageButton weightMenu = createImageButton(R.drawable.pesee, 78);
+        weightMenu.setContentDescription("PesÃ©e");
         weightMenu.setOnClickListener(v -> showWeightMenu());
         root.addView(weightMenu);
 
-        fe21Button = createPrimaryButton("INSECURE");
+        fe21Button = createImageButton(R.drawable.insecure, 78);
+        fe21Button.setContentDescription("Insecure");
         fe21Button.setOnClickListener(v -> confirmFe21PowerOff());
         root.addView(fe21Button);
 
-        TextView logTitle =
-                createText("JOURNAL BLUETOOTH", 14, BLUE);
-
-        logTitle.setPadding(0, 15, 0, 5);
-        root.addView(logTitle);
-
-        log = createText(logHistory.toString(), 11, GREY);
-        log.setGravity(Gravity.START);
-        log.setTextIsSelectable(true);
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(log);
-
-        root.addView(scroll, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1
-        ));
+        View bottomSpace = new View(this);
+        root.addView(bottomSpace, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
 
         setContentView(root);
         updateButtons();
@@ -450,123 +389,80 @@ public class MainActivity extends Activity {
     // ---------------------------------------------------------
 
     private void showLockMenu() {
-
         clearScreenButtons();
 
         LinearLayout root = createRoot();
+        root.setPadding(24, 24, 24, 24);
+        root.setGravity(Gravity.CENTER);
+        root.setBackgroundResource(R.drawable.menu_verrouillage);
 
-        root.addView(createHeader("VERROUILLAGE"));
+        View topSpace = new View(this);
+        root.addView(topSpace, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
 
-        TextView description =
-                createText("SÉLECTION DU VERROU", 14, GREY);
-
-        root.addView(description);
-
-        LinearLayout panel = new LinearLayout(this);
-        panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setGravity(Gravity.CENTER);
-        panel.setPadding(15, 20, 15, 20);
-        panel.setBackground(roundedPanel());
-
-        TextView side =
-                createText("SIDE", 25, BLUE);
-
-        panel.addView(side);
-
-        TextView sideDescription =
-                createText("VERROU AVANT", 13, GREY);
-
-        panel.addView(sideDescription);
-
-        frontButton = createPrimaryButton("ACTIVER SIDE");
+        frontButton = createImageButton(R.drawable.activer_side, 78);
+        frontButton.setContentDescription("Activer SIDE");
         frontButton.setOnClickListener(v -> confirmAndSend(true));
-        panel.addView(frontButton);
+        root.addView(frontButton);
 
-        TextView back =
-                createText("BACK", 25, BLUE);
-
-        back.setPadding(0, 20, 0, 0);
-        panel.addView(back);
-
-        TextView backDescription =
-                createText("VERROU ARRIÈRE", 13, GREY);
-
-        panel.addView(backDescription);
-
-        rearButton = createPrimaryButton("ACTIVER BACK");
+        rearButton = createImageButton(R.drawable.activer_back, 78);
+        rearButton.setContentDescription("Activer BACK");
         rearButton.setOnClickListener(v -> confirmAndSend(false));
-        panel.addView(rearButton);
+        root.addView(rearButton);
 
-        root.addView(panel);
-
-        Button backButton = createButton("RETOUR");
+        ImageButton backButton = createImageButton(R.drawable.retour, 70);
+        backButton.setContentDescription("Retour");
         backButton.setOnClickListener(v -> showHome());
         root.addView(backButton);
+
+        View bottomSpace = new View(this);
+        root.addView(bottomSpace, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
 
         setContentView(root);
         updateButtons();
     }
 
     // ---------------------------------------------------------
-    // MENU PESÉE
+    // MENU PESÃ‰E
     // ---------------------------------------------------------
 
     private void showWeightMenu() {
-
         clearScreenButtons();
 
         LinearLayout root = createRoot();
+        root.setPadding(24, 24, 24, 24);
+        root.setGravity(Gravity.CENTER);
+        root.setBackgroundResource(R.drawable.menu_pesee);
 
-        root.addView(createHeader("PESÉE"));
+        View topSpace = new View(this);
+        root.addView(topSpace, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
 
-        TextView description =
-                createText("DIGITAL SCALE", 14, GREY);
-
-        root.addView(description);
-
-        LinearLayout display = new LinearLayout(this);
-        display.setOrientation(LinearLayout.VERTICAL);
-        display.setGravity(Gravity.CENTER);
-        display.setPadding(15, 35, 15, 35);
-        display.setBackground(roundedPanel());
-
-        TextView label =
-                createText("POIDS ACTUEL", 13, GREY);
-
-        display.addView(label);
-
-        weightText = createText(currentWeight, 30, BLUE);
+        weightText = createText(currentWeight, 26, WHITE);
         weightText.setTypeface(null, android.graphics.Typeface.BOLD);
-        weightText.setPadding(0, 20, 0, 20);
+        weightText.setPadding(0, 10, 0, 14);
+        root.addView(weightText);
 
-        display.addView(weightText);
-
-        root.addView(display);
-
-        weighButton = createPrimaryButton(
-                weighing ? "ARRÊTER LA PESÉE" : "DÉMARRER LA PESÉE"
-        );
-
+        weighButton = createImageButton(R.drawable.demarrer_la_pesee, 78);
+        weighButton.setContentDescription(
+                weighing ? "ArrÃªter la pesÃ©e" : "DÃ©marrer la pesÃ©e");
         weighButton.setOnClickListener(v -> startOrStopWeighing());
         root.addView(weighButton);
 
-        calibrateButton = createButton("CALIBRER LA PESÉE");
+        calibrateButton = createImageButton(R.drawable.calibrer_la_pesee, 78);
+        calibrateButton.setContentDescription("Calibrer la pesÃ©e");
         calibrateButton.setOnClickListener(v -> calibrateWeight());
         root.addView(calibrateButton);
 
-        TextView warning =
-                createText(
-                        "Pour calibrer, placez la valise vide sur une surface plane.",
-                        12,
-                        GREY
-                );
+        ImageButton backButton = createImageButton(R.drawable.retour, 70);
+        backButton.setContentDescription("Retour");
+        backButton.setOnClickListener(v -> showHome());
+        root.addView(backButton);
 
-        warning.setPadding(0, 20, 0, 20);
-        root.addView(warning);
-
-        Button back = createButton("RETOUR");
-        back.setOnClickListener(v -> showHome());
-        root.addView(back);
+        View bottomSpace = new View(this);
+        root.addView(bottomSpace, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
 
         setContentView(root);
         updateButtons();
@@ -600,7 +496,7 @@ public class MainActivity extends Activity {
     private void startScan() {
 
         if (adapter == null || !adapter.isEnabled()) {
-            setStatus("Active le Bluetooth du téléphone.");
+            setStatus("Active le Bluetooth du tÃ©lÃ©phone.");
             return;
         }
 
@@ -619,8 +515,8 @@ public class MainActivity extends Activity {
 
         updateButtons();
 
-        setStatus("Recherche de RUNNER…");
-        addLog("Démarrage du scan BLE (10 secondes).");
+        setStatus("Recherche de RUNNERâ€¦");
+        addLog("DÃ©marrage du scan BLE (10 secondes).");
 
         BluetoothLeScanner scanner = adapter.getBluetoothLeScanner();
 
@@ -639,7 +535,7 @@ public class MainActivity extends Activity {
             }
 
             if (gatt == null) {
-                setStatus("RUNNER non trouvé. Réessaie.");
+                setStatus("RUNNER non trouvÃ©. RÃ©essaie.");
             }
 
         }, 10000);
@@ -662,8 +558,8 @@ public class MainActivity extends Activity {
                     scanner.stopScan(this);
                 }
 
-                addLog("RUNNER trouvé : " + device.getAddress());
-                setStatus("Connexion à RUNNER…");
+                addLog("RUNNER trouvÃ© : " + device.getAddress());
+                setStatus("Connexion Ã  RUNNERâ€¦");
 
                 gatt = device.connectGatt(
                         MainActivity.this,
@@ -675,7 +571,7 @@ public class MainActivity extends Activity {
 
         @Override
         public void onScanFailed(int errorCode) {
-            setStatus("Échec du scan BLE : " + errorCode);
+            setStatus("Ã‰chec du scan BLE : " + errorCode);
         }
     };
 
@@ -692,8 +588,8 @@ public class MainActivity extends Activity {
 
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
 
-                    setStatus("Connecté. Recherche des services…");
-                    addLog("Connexion BLE établie.");
+                    setStatus("ConnectÃ©. Recherche des servicesâ€¦");
+                    addLog("Connexion BLE Ã©tablie.");
 
                     bluetoothGatt.discoverServices();
 
@@ -701,7 +597,7 @@ public class MainActivity extends Activity {
 
                     stopWeighing();
 
-                    setStatus("Déconnecté.");
+                    setStatus("DÃ©connectÃ©.");
 
                     commandCharacteristic = null;
                     fe21Characteristic = null;
@@ -748,7 +644,7 @@ public class MainActivity extends Activity {
 
             if (commandCharacteristic == null) {
                 runOnUiThread(() ->
-                        setStatus("Caractéristique FE22 introuvable."));
+                        setStatus("CaractÃ©ristique FE22 introuvable."));
                 return;
             }
 
@@ -778,13 +674,13 @@ public class MainActivity extends Activity {
 
             runOnUiThread(() -> {
 
-                setStatus("RUNNER connecté — prêt.");
+                setStatus("RUNNER connectÃ© â€” prÃªt.");
 
-                addLog("Service FE20 et caractéristique FE22 trouvés.");
+                addLog("Service FE20 et caractÃ©ristique FE22 trouvÃ©s.");
 
                 if (fe21Characteristic != null) {
-                    addLog("Caractéristique FE21 trouvée.");
-                    addLog("Propriétés FE21 : "
+                    addLog("CaractÃ©ristique FE21 trouvÃ©e.");
+                    addLog("PropriÃ©tÃ©s FE21 : "
                             + fe21Characteristic.getProperties());
                 } else {
                     addLog("FE21 introuvable.");
@@ -827,7 +723,7 @@ public class MainActivity extends Activity {
                                 bluetoothGatt.writeDescriptor(fe21Descriptor);
 
                         runOnUiThread(() -> addLog(started
-                                ? "Activation notifications FE21 demandée."
+                                ? "Activation notifications FE21 demandÃ©e."
                                 : "Impossible d'activer les notifications FE21."));
                     }
                 }
@@ -835,7 +731,7 @@ public class MainActivity extends Activity {
             } else if (FE21_UUID.equals(characteristic.getUuid())) {
 
                 runOnUiThread(() ->
-                        addLog("Notifications FE21 activées."));
+                        addLog("Notifications FE21 activÃ©es."));
             }
         }
 
@@ -856,14 +752,14 @@ public class MainActivity extends Activity {
 
                 runOnUiThread(() -> {
 
-                    addLog("FE22 reçu : " + toHex(value));
+                    addLog("FE22 reÃ§u : " + toHex(value));
 
                     if (decoded == null) {
-                        addLog("Paquet FE22 non validé.");
+                        addLog("Paquet FE22 non validÃ©.");
                         return;
                     }
 
-                    addLog("FE22 décodé : " + toHex(decoded));
+                    addLog("FE22 dÃ©codÃ© : " + toHex(decoded));
 
                     if (decoded.length >= 4) {
 
@@ -902,8 +798,8 @@ public class MainActivity extends Activity {
 
             runOnUiThread(() ->
                     addLog(statusCode == BluetoothGatt.GATT_SUCCESS
-                            ? "Écriture BLE confirmée."
-                            : "Erreur d’écriture BLE : " + statusCode));
+                            ? "Ã‰criture BLE confirmÃ©e."
+                            : "Erreur dâ€™Ã©criture BLE : " + statusCode));
         }
     };
 
@@ -915,24 +811,24 @@ public class MainActivity extends Activity {
 
         if (commandCharacteristic == null || gatt == null) {
             Toast.makeText(this,
-                    "Connecte d’abord RUNNER.",
+                    "Connecte dâ€™abord RUNNER.",
                     Toast.LENGTH_SHORT).show();
             return;
         }
 
         if (front && !firstSequenceSent) {
             Toast.makeText(this,
-                    "Envoie d’abord la séquence 1.",
+                    "Envoie dâ€™abord la sÃ©quence 1.",
                     Toast.LENGTH_LONG).show();
             return;
         }
 
         String message = front
-                ? "Envoyer la séquence 2 au verrou SIDE ?"
-                : "Envoyer la séquence 1 au verrou BACK ?";
+                ? "Envoyer la sÃ©quence 2 au verrou SIDE ?"
+                : "Envoyer la sÃ©quence 1 au verrou BACK ?";
 
         new android.app.AlertDialog.Builder(this)
-                .setTitle("Confirmer l’envoi")
+                .setTitle("Confirmer lâ€™envoi")
                 .setMessage(message)
                 .setNegativeButton("Annuler", (d, w) -> {
                 })
@@ -966,25 +862,25 @@ public class MainActivity extends Activity {
             }
 
             addLog("Envoi "
-                    + (front ? "séquence SIDE" : "séquence BACK")
+                    + (front ? "sÃ©quence SIDE" : "sÃ©quence BACK")
                     + " : " + toHex(payload));
 
             updateButtons();
 
         } else {
-            addLog("Le téléphone a refusé l’écriture BLE.");
+            addLog("Le tÃ©lÃ©phone a refusÃ© lâ€™Ã©criture BLE.");
         }
     }
 
     // ---------------------------------------------------------
-    // FE21 — INSECURE
+    // FE21 â€” INSECURE
     // ---------------------------------------------------------
 
     private void confirmFe21PowerOff() {
 
         if (gatt == null || fe21Characteristic == null) {
             Toast.makeText(this,
-                    "FE21 indisponible. Connecte d’abord RUNNER.",
+                    "FE21 indisponible. Connecte dâ€™abord RUNNER.",
                     Toast.LENGTH_SHORT).show();
             return;
         }
@@ -992,8 +888,8 @@ public class MainActivity extends Activity {
         new android.app.AlertDialog.Builder(this)
                 .setTitle("Commande FE21")
                 .setMessage(
-                        "Envoyer la commande PLEVO de désactivation " +
-                        "de l’anti-perte ?"
+                        "Envoyer la commande PLEVO de dÃ©sactivation " +
+                        "de lâ€™anti-perte ?"
                 )
                 .setNegativeButton("Annuler", (d, w) -> {
                 })
@@ -1025,15 +921,15 @@ public class MainActivity extends Activity {
                 gatt.writeCharacteristic(fe21Characteristic);
 
         if (accepted) {
-            addLog("FE21 — commande PLEVO : "
+            addLog("FE21 â€” commande PLEVO : "
                     + toHex(encodedCommand));
         } else {
-            addLog("Le téléphone a refusé l’écriture sur FE21.");
+            addLog("Le tÃ©lÃ©phone a refusÃ© lâ€™Ã©criture sur FE21.");
         }
     }
 
     // ---------------------------------------------------------
-    // ENCODAGE ET DÉCODAGE PLEVO
+    // ENCODAGE ET DÃ‰CODAGE PLEVO
     // ---------------------------------------------------------
 
     private byte[] encodePlevoPacket(byte[] input) {
@@ -1128,7 +1024,7 @@ public class MainActivity extends Activity {
     }
 
     // ---------------------------------------------------------
-    // PESÉE ET CALIBRAGE
+    // PESÃ‰E ET CALIBRAGE
     // ---------------------------------------------------------
 
     private void startOrStopWeighing() {
@@ -1148,12 +1044,12 @@ public class MainActivity extends Activity {
         weighing = true;
 
         if (weighButton != null) {
-            weighButton.setText("ARRÊTER LA PESÉE");
+            weighButton.setContentDescription("ArrÃªter la pesÃ©e");
         }
 
         sendWeightCommand(new byte[] {0x02, 0x00});
 
-        addLog("Démarrage du cycle de pesée.");
+        addLog("DÃ©marrage du cycle de pesÃ©e.");
 
         weighHandler.postDelayed(weightRunnable, 1000);
     }
@@ -1182,7 +1078,7 @@ public class MainActivity extends Activity {
         weighHandler.removeCallbacks(weightRunnable);
 
         if (weighButton != null) {
-            weighButton.setText("DÉMARRER LA PESÉE");
+            weighButton.setContentDescription("DÃ©marrer la pesÃ©e");
         }
     }
 
@@ -1204,8 +1100,8 @@ public class MainActivity extends Activity {
                 gatt.writeCharacteristic(commandCharacteristic);
 
         addLog(accepted
-                ? "Commande pesée FE22 : " + toHex(packet)
-                : "Échec de l'envoi de la commande de pesée.");
+                ? "Commande pesÃ©e FE22 : " + toHex(packet)
+                : "Ã‰chec de l'envoi de la commande de pesÃ©e.");
     }
 
     private void calibrateWeight() {
@@ -1215,7 +1111,7 @@ public class MainActivity extends Activity {
                 commandCharacteristic == null) {
 
             Toast.makeText(this,
-                    "Démarre d'abord la pesée.",
+                    "DÃ©marre d'abord la pesÃ©e.",
                     Toast.LENGTH_SHORT).show();
             return;
         }
@@ -1231,13 +1127,13 @@ public class MainActivity extends Activity {
 
                     sendWeightCommand(new byte[] {0x02, 0x02});
 
-                    addLog("Commande de calibrage envoyée.");
+                    addLog("Commande de calibrage envoyÃ©e.");
                 })
                 .show();
     }
 
     // ---------------------------------------------------------
-    // ÉTAT DES BOUTONS ET JOURNAL
+    // Ã‰TAT DES BOUTONS ET JOURNAL
     // ---------------------------------------------------------
 
     private void updateButtons() {
@@ -1294,7 +1190,7 @@ public class MainActivity extends Activity {
 
         runOnUiThread(() -> {
             if (status != null) {
-                status.setText("ÉTAT : " + currentStatus.toUpperCase());
+                status.setText("Ã‰TAT : " + currentStatus.toUpperCase());
             }
         });
     }
